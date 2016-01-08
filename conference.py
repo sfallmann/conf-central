@@ -99,6 +99,11 @@ SESSION_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
+WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeSessionKey=messages.StringField(1),
+)
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -473,6 +478,35 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
         )
+
+# - - - Wishlist objects - - - - - - - - - - - - - - - - - -
+
+
+    @endpoints.method(
+        WISHLIST_POST_REQUEST, BooleanMessage,
+        path='profile/wishlist/add/{websafeSessionKey}',
+        http_method='POST', name='addSessionToWishList')
+    def addSessionToWishlist(self, request):
+        user = endpoints.get_current_user()
+        user_id = getUserId(user)
+        profile_key = ndb.Key(Profile, user_id)
+        profile = profile_key.get()
+        profile.wishlist.append(request.websafeSessionKey)
+        profile.put()
+        return BooleanMessage(data=True)
+
+    @endpoints.method(
+        message_types.VoidMessage, SessionForms,
+        path='profile/wishlist',
+        http_method='GET', name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Return all sessions in logged-in user's wishlist."""
+        profile = self._getProfileFromUser()
+        websafe_keys = profile.wishlist
+        session_keys = [ndb.Key(urlsafe=wskey) for wskey in websafe_keys]
+        sessions = ndb.get_multi(session_keys)
+        return SessionForms(
+            items=[self._copySessionToForm(s) for s in sessions])
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
 
