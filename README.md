@@ -32,10 +32,10 @@ App Engine application for the Udacity training course.
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
 
 
-## Tasks
 
-## Task 1: Design Choices
+## Task 1
 
+### Design Choices
 
 Session objects are children of Conference objects which allows for easy querying
 of all sessions for a specific conference.  Sessions have their own websafekey field which
@@ -45,7 +45,7 @@ the conference entities have.
 Speakers are implemented as a string for the sake of simplicity.
 
 
-## Task 2:
+## Task 2
 
 ### Session Wishlist
 
