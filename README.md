@@ -30,3 +30,64 @@ App Engine application for the Udacity training course.
 [4]: https://console.developers.google.com/
 [5]: https://localhost:8080/
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
+
+
+## Tasks
+
+## Task 1: Design Choices
+
+
+Session objects are children of Conference objects which allows for easy querying
+of all sessions for a specific conference.  Sessions have their own websafekey field which
+are used for the wishlist implementation.  It would also allow for a details endpoint much like
+the conference entities have.
+
+Speakers are implemented as a string for the sake of simplicity.
+
+
+## Task 2:
+
+### Session Wishlist
+
+Wishlists are a repeated string property of Profile objects containing a list of sessions.
+
+
+- `addSessionToWishlist()`
+   Adds a session to the wishlist
+
+- `deleteSessionInWishlist()`
+   Removes a session from the wishlist
+
+- `getSessionsInWishlist()`
+   returns all the sessions in the wishlist
+
+## Task 3
+
+### Additional Queries
+
+- `getConferenceSessionsByDate`
+   returns all sessions within a specified conference by date
+
+- `getConferenceSessionsByHighlight`
+   returns all sessions within a specified conference by highlight
+
+### Query Problem
+
+*Solve the following query related problem: Let’s say that you don't like workshops and you don't like sessions after 7 pm. How would you handle a query for all non-workshop sessions before 7 pm? What is the problem for implementing this query? What ways to solve it did you think of?*
+
+The problem is due to inequality filters can only be applied to one property - two properties would require such a filter: startTime and typeOfSession.
+
+
+To work around this limitation, first get all non-workshop sessions.  Then iterate through the results and create a new list of sessions by adding sessions that are 7PM or earlier. Return the new list.
+
+
+
+## Task 4
+
+### Featured Speaker
+
+When a session is added to a conference, a task is called at the endpoint /tasks/set_speaker.  That task in turns invokes _cacheSpeaker.
+If the speaker for the newly created session is a speaker for previously created session in the conference, that speaker becomes the new featured speaker.  That speaker and their sessions are added to memcache.
+
+- `getFeaturedSpeaker()`
+   returns the featured speaker in memcache

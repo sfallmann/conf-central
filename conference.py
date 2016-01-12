@@ -96,7 +96,8 @@ SESSION_GET_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
     typeOfSession=messages.StringField(2),
     speaker=messages.StringField(3),
-    date=messages.StringField(4)
+    date=messages.StringField(4),
+    highlight=messages.StringField(5)
 )
 
 SESSION_POST_REQUEST = endpoints.ResourceContainer(
@@ -363,7 +364,7 @@ class ConferenceApi(remote.Service):
         sf = SessionForm()
         for field in sf.all_fields():
             if hasattr(session, field.name):
-                # convert Date to date string; just copy others
+                # convert date to date string and startTime to startTime string; just copy others
                 if field.name == 'date' or field.name =='startTime':
                     setattr(sf, field.name, str(getattr(session, field.name)))
                 else:
@@ -396,13 +397,6 @@ class ConferenceApi(remote.Service):
         websafeConferenceKey = data['websafeConferenceKey']
         del data['websafeConferenceKey']
         del data['websafeKey']
-        """
-        # add default values for those missing (both data model & outbound Message)
-        for df in DEFAULTS:
-            if data[df] in (None, []):
-                data[df] = DEFAULTS[df]
-                setattr(request, df, DEFAULTS[df])
-        """
 
         # convert dates from strings to Date objects; set month based on start_date
         if data['date']:
@@ -418,10 +412,9 @@ class ConferenceApi(remote.Service):
         s_id = Session.allocate_ids(size=1, parent=c_key)[0]
         s_key = ndb.Key(Session, s_id, parent=c_key)
         data['key'] = s_key
-        #data['organizerUserId'] = request.organizerUserId = user_id
 
-        # create Conference, send email to organizer confirming
-        # creation of Conference & return (modified) ConferenceForm
+        # create Session, add the set speaker task to the queue
+        # creation of Session & return (modified) SessionForm
         Session(**data).put()
 
         taskqueue.add(params={'speaker': data["speaker"],
@@ -436,7 +429,7 @@ class ConferenceApi(remote.Service):
     @endpoints.method(SessionForm, SessionForm, path='session',
             http_method='POST', name='createSession')
     def createSession(self, request):
-        """Create new conference."""
+        """Create new session."""
         return self._createSessionObject(request)
 
     @endpoints.method(SESSION_GET_REQUEST, SessionForms,
@@ -444,11 +437,12 @@ class ConferenceApi(remote.Service):
             http_method='GET', name='getConferenceSessions')
     def getConferenceSessions(self, request):
         """Return conference sessions (by websafeConferenceKey)."""
-        # get Conference object from request; bail if not found
+        # get Conference object from request; raise exception if not found
         conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
+        # get all Session objects with the conf ancestor
         sessions = Session.query(ancestor=ndb.Key(Conference, conf.key.id()))
         # return list of SessionForm objects
         return SessionForms(
@@ -473,7 +467,7 @@ class ConferenceApi(remote.Service):
         # get all sessions of specified type for a specified conference
         sessions = Session.query(Session.typeOfSession == request.typeOfSession, ancestor=ndb.Key(Conference, conf.key.id()))
 
-        # return set of ConferenceForm objects per Conference
+        # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
         )
@@ -484,10 +478,10 @@ class ConferenceApi(remote.Service):
     def getSessionsBySpeaker(self, request):
         """Given a conference, return all sessions of a specified type"""
 
-        # create ancestor query for all key matches for this conference
+        # get all sessions with the provided speaker in a conference
         sessions = Session.query(Session.speaker == request.speaker)
 
-        # return set of ConferenceForm objects per Conference
+        # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
         )
@@ -507,10 +501,34 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
 
-        # get all sessions of specified type for a specified conference
+        # get all sessions on a specified date for a specified conference
         sessions = Session.query(Session.date == datetime.strptime(request.date[:10], "%Y-%m-%d").date(), ancestor=ndb.Key(Conference, conf.key.id()))
 
-        # return set of ConferenceForm objects per Conference
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
+
+
+
+    @endpoints.method(SESSION_GET_REQUEST, SessionForms,
+            path='conference/{websafeConferenceKey}/sessions/highlight/{highlight}',
+            http_method='GET', name='getConferenceSessionsByHighlight')
+    def getConferenceSessionsByHighlight(self, request):
+        """Given a conference, return all sessions with specified highlight"""
+
+        # fetch existing conference
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+
+        # check that conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # get all sessions with specified highlight for a specified conference
+        sessions = Session.query(Session.highlights == request.highlight, ancestor=ndb.Key(Conference, conf.key.id()))
+
+        # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
         )
@@ -526,10 +544,15 @@ class ConferenceApi(remote.Service):
         http_method='POST', name='addSessionToWishList')
     def addSessionToWishlist(self, request):
         """Given a session, add it to the users wishlist"""
+
+        # Get the current user
         user = endpoints.get_current_user()
         user_id = getUserId(user)
+        # Get the profile for the current user
         profile_key = ndb.Key(Profile, user_id)
         profile = profile_key.get()
+        # Check if the session is already in the wishlist
+        # if it's not add it
         if request.websafeSessionKey in profile.wishlist:
             return StringMessage(data="Session already in wishlist!")
         else:
@@ -543,18 +566,22 @@ class ConferenceApi(remote.Service):
         http_method='POST', name='deleteSessionInWishlist')
     def deleteSessionInWishlist(self, request):
         """Given a session, delete it from the users wishlist"""
+
+        # Get the current user
         user = endpoints.get_current_user()
         user_id = getUserId(user)
+        # Get the profile for the current user
         profile_key = ndb.Key(Profile, user_id)
         profile = profile_key.get()
+
+        # Check if the session is already in the wishlist
+        # if it is, remove it
         if request.websafeSessionKey in profile.wishlist:
             profile.wishlist.remove(request.websafeSessionKey)
             profile.put()
             return StringMessage(data="Session deleted from wishlist!")
         else:
             return StringMessage(data="Session not in wishlist!")
-
-
 
     @endpoints.method(
         message_types.VoidMessage, SessionForms,
@@ -682,6 +709,10 @@ class ConferenceApi(remote.Service):
         if not announcement:
             announcement = ""
         return StringMessage(data=announcement)
+
+
+# - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
+
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
             path='conference/featured_speaker/get',
