@@ -24,7 +24,7 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
-    wishlist = ndb.StringProperty(repeated=True)
+    wishlist = ndb.KeyProperty(kind=Sesssion, repeated=True)
 
 
 class ProfileMiniForm(messages.Message):

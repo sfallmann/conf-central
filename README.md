@@ -37,12 +37,26 @@ App Engine application for the Udacity training course.
 
 ### Design Choices
 
-Session objects are children of Conference objects which allows for easy querying
-of all sessions for a specific conference.  Sessions have their own websafekey field which
-are used for the wishlist implementation.  It would also allow for a details endpoint much like
-the conference entities have.
+Session objects are children of Conference objects since Sessions are specific to each Conference.
 
-Speakers are implemented as a string for the sake of simplicity.
+    class Session(ndb.Model):
+        name            = ndb.StringProperty(required=True)
+        highlights      = ndb.StringProperty(repeated=True)
+        speaker         = ndb.StringProperty()
+        duration        = ndb.IntegerProperty()
+        typeOfSession   = ndb.StringProperty()
+        date            = ndb.DateProperty()
+        startTime       = ndb.TimeProperty()
+
+name, highlights and typeOfSession are implemented as strings with highlights repeatable to allow  multiple highlights.
+speaker is also implemented as a string for simplicity.
+
+I chose  the string type since these properties would contain words.
+
+The types for date and startTime are self explanatory.
+
+For duration, IntegerProperty was selected since this would be representing a number of minutes (ex 30, 45, 60, 90, etc)
+
 
 
 ## Task 2
