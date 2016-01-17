@@ -62,7 +62,7 @@ For duration, IntegerProperty was selected since this would be representing a nu
 
 ### Session Wishlist
 
-Wishlists are a repeated key property of Profile objects containing a list of session keys.
+Wishlists are a repeated key property of Profile containing a list of session keys.
 
 
 - `addSessionToWishlist()`
