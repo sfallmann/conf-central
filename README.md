@@ -49,21 +49,20 @@ Session objects are children of Conference objects since Sessions are specific t
         startTime       = ndb.TimeProperty()
 
 name, highlights and typeOfSession are implemented as strings with highlights repeatable to allow  multiple highlights.
-speaker is also implemented as a string for simplicity.
+I chose  the string type since the property values would be words or names.
 
-I chose  the string type since these properties would contain words.
+speaker is also implemented as a string for simplicity.
 
 The types for date and startTime are self explanatory.
 
 For duration, IntegerProperty was selected since this would be representing a number of minutes (ex 30, 45, 60, 90, etc)
 
 
-
 ## Task 2
 
 ### Session Wishlist
 
-Wishlists are a repeated string property of Profile objects containing a list of sessions.
+Wishlists are a repeated key property of Profile objects containing a list of session keys.
 
 
 - `addSessionToWishlist()`
